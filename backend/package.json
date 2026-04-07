@@ -2,14 +2,14 @@
   "name": "crud-api",
   "version": "1.0.0",
   "description": "A simple CRUD API using Express and MongoDB",
-  "main": "dist/server.js",
+  "main": "dist/index.js",
   "engines": {
     "node": "18.x"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/server.js",
-    "dev": "ts-node-dev --respawn --transpile-only server.ts"
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts"
   },
   "keywords": [
     "API",

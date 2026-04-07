@@ -1,26 +1,26 @@
-import mongoose, { Document, Model } from 'mongoose';
+import mongoose, { Document } from 'mongoose';
 
-interface IUser extends Document {
+export interface IUser extends Document {
   username: string;
   password: string;
 }
 
-interface IScore extends Document {
+export interface IScore extends Document {
   username: string;
   lastscore: string;
 }
 
-interface IQA extends Document {
+export interface IQA extends Document {
   username: string;
   questionanswer: string;
 }
 
-interface IQno extends Document {
+export interface IQno extends Document {
   username: string;
   qno: string;
 }
 
-interface IImage extends Document {
+export interface IImage extends Document {
   username: string;
   image: string;
 }
@@ -50,10 +50,8 @@ const imageSchema = new mongoose.Schema<IImage>({
   image: String,
 });
 
-const Image = mongoose.model<IImage>('Image', imageSchema);
-const User = mongoose.model<IUser>('User', userSchema);
-const Score = mongoose.model<IScore>('Score', scoreSchema);
-const QA = mongoose.model<IQA>('QA', qaSchema);
-const Qno = mongoose.model<IQno>('Qno', qnoSchema);
-
-export { User, Score, QA, Qno, Image };
+export const User = mongoose.model<IUser>('User', userSchema);
+export const Score = mongoose.model<IScore>('Score', scoreSchema);
+export const QA = mongoose.model<IQA>('QA', qaSchema);
+export const Qno = mongoose.model<IQno>('Qno', qnoSchema);
+export const ImageModel = mongoose.model<IImage>('Image', imageSchema);
