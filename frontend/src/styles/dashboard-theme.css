@@ -1,0 +1,337 @@
+/* ===== DASHBOARD THEME (SHARED ACCROSS ALL AUTH PAGES) ===== */
+
+/* --- Layout & Background --- */
+.dashboard-layout {
+  position: relative;
+  min-height: 100vh;
+  background: #050510;
+  font-family: 'Poppins', 'Segoe UI', sans-serif;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* Background Animations */
+.dash-bg-orbs {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.dash-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.25;
+}
+
+.dash-orb-1 {
+  width: 600px;
+  height: 600px;
+  top: -10%;
+  left: -10%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.6), transparent 70%);
+  animation: dashDrift 25s ease-in-out infinite;
+}
+
+.dash-orb-2 {
+  width: 500px;
+  height: 500px;
+  bottom: -20%;
+  right: -10%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.5), transparent 70%);
+  animation: dashDrift 30s ease-in-out infinite reverse;
+}
+
+.dash-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 50px 50px;
+  mask-image: radial-gradient(circle at center, black, transparent 80%);
+  -webkit-mask-image: radial-gradient(circle at center, black, transparent 80%);
+}
+
+@keyframes dashDrift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, -40px) scale(1.05); }
+}
+
+/* --- Navigation Bar --- */
+.dash-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 5%;
+  background: rgba(10, 10, 18, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dash-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.dash-logo-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dash-logo-text {
+  font-size: 20px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #fff, #a5b4fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dash-links {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.dash-link {
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.dash-link:hover, .dash-link.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dash-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.dash-welcome {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.dash-welcome span {
+  color: #a5b4fc;
+  font-weight: 600;
+}
+
+.dash-logout {
+  padding: 8px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.dash-logout:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+/* --- Mobile Nav (Hamburger) --- */
+.dash-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .dash-menu-btn {
+    display: block;
+  }
+  
+  .dash-links {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    background: rgba(15, 15, 25, 0.95);
+    backdrop-filter: blur(20px);
+    padding: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  
+  .dash-links.open {
+    display: flex;
+  }
+  
+  .dash-user {
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    padding-top: 16px;
+    margin-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* --- Main Content Area --- */
+.dash-content {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+  padding: 40px 5%;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  animation: fadeUp 0.6s ease forwards;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Shared Glassmorphism Cards --- */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.glass-header {
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.glass-header h1, .glass-header h2 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 12px;
+  background: linear-gradient(135deg, #fff, #a5b4fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.glass-header p {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 15px;
+  margin: 0;
+}
+
+/* --- Shared Form Inputs --- */
+.glass-input-group {
+  margin-bottom: 24px;
+}
+
+.glass-input-group label {
+  display: block;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.glass-input, .glass-select, .glass-textarea {
+  width: 100%;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #fff;
+  font-size: 15px;
+  font-family: inherit;
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.glass-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.glass-input:focus, .glass-select:focus, .glass-textarea:focus {
+  border-color: rgba(129, 140, 248, 0.5);
+  background: rgba(99, 102, 241, 0.05);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/* --- Shared Buttons --- */
+.btn-primary {
+  width: 100%;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Page specific sub-layouts inside glass panels */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}

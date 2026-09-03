@@ -18,14 +18,14 @@ export const api = {
     },
   },
   interview: {
-    start: async (domain: string, username: string) => {
+    start: async (domain: string, username: string, jobDescriptionId?: string) => {
       const response = await fetch(`${API_URL}/api/interview`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'username': username
         },
-        body: JSON.stringify({ domain })
+        body: JSON.stringify({ domain, jobDescriptionId })
       });
       return response.json();
     },
@@ -58,5 +58,44 @@ export const api = {
       });
       return response.json();
     }
+  },
+  rag: {
+    ingestJD: async (title: string, rawText: string, token: string, company?: string) => {
+      const response = await fetch(`${API_URL}/api/rag/ingest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'jwttoken': token
+        },
+        body: JSON.stringify({ title, company, rawText })
+      });
+      return response.json();
+    },
+    listJDs: async (token: string) => {
+      const response = await fetch(`${API_URL}/api/rag/job-descriptions`, {
+        method: 'GET',
+        headers: { 'jwttoken': token }
+      });
+      return response.json();
+    },
+    deleteJD: async (id: string, token: string) => {
+      const response = await fetch(`${API_URL}/api/rag/job-descriptions/${id}`, {
+        method: 'DELETE',
+        headers: { 'jwttoken': token }
+      });
+      return response.json();
+    },
+    gapAnalysis: async (resumeText: string, token: string) => {
+      const response = await fetch(`${API_URL}/api/rag/gap-analysis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'jwttoken': token
+        },
+        body: JSON.stringify({ resumeText })
+      });
+      return response.json();
+    }
   }
 };
+

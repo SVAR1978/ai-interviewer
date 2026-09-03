@@ -1,70 +1,90 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import '../styles/aifrontend.css';
-import logo from '../assets/logo1.png';
+import '../styles/dashboard-theme.css';
 
 const Dashboard: React.FC = () => {
     const [username, setUsername] = useState('');
-    const [userImage, setUserImage] = useState<string | null>(null);
     const navigate = useNavigate();
 
     useEffect(() => {
         const storedUser = localStorage.getItem('username');
         if (!storedUser) {
-            navigate('/');
+            navigate('/signin');
             return;
         }
         setUsername(storedUser);
-        fetchImage(storedUser);
     }, [navigate]);
 
-    const fetchImage = async (user: string) => {
-        try {
-            const res = await fetch('http://localhost:3000/api/getimage', {
-                method: 'POST',
-                headers: { 'username': user }
-            });
-            const data = await res.json();
-            if (data.image) setUserImage(data.image);
-        } catch {}
-    };
-
-    const handleLogout = () => {
-        localStorage.clear();
-        navigate('/');
-    };
-
     return (
-        <div className="home-container">
-            <header className="header">
-                <nav className="navbar">
-                    <img src={logo} alt="Logo" className="logo" />
-                    <ul>
-                        <li><Link to="/resume">Check Resume</Link></li>
-                        <li><Link to="/scores">Check Last Scores</Link></li>
-                        <li onClick={handleLogout} style={{ cursor: 'pointer' }}>Logout</li>
-                    </ul>
-                    <div className="profile">
-                        <span id="pname">{username}</span>
-                        <div id="pimage">
-                            {userImage ? <img src={userImage} alt="Profile" /> : <div className="placeholder-user"></div>}
-                        </div>
-                    </div>
-                </nav>
-            </header>
+        <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            minHeight: '70vh',
+            gap: '40px',
+            flexWrap: 'wrap',
+        }}>
+            {/* Left — AI Message */}
+            <div style={{
+                flex: '1 1 400px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'flex-end',
+                minHeight: '400px',
+            }}>
+                <h1 style={{
+                    fontSize: 'clamp(32px, 5vw, 48px)',
+                    fontWeight: '700',
+                    marginBottom: '16px',
+                    background: 'linear-gradient(135deg, #fff, #a5b4fc)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    lineHeight: '1.2',
+                }}>
+                    Welcome, {username}
+                </h1>
+                <p style={{
+                    fontSize: '18px',
+                    color: 'rgba(255,255,255,0.6)',
+                    marginBottom: '36px',
+                    maxWidth: '460px',
+                    lineHeight: '1.6',
+                }}>
+                    Get Interview-Ready with AI-Powered Practice & Real-Time Feedback
+                </p>
+                <button
+                    className="btn-primary"
+                    onClick={() => navigate('/interview')}
+                    style={{ maxWidth: '260px' }}
+                >
+                    Start Mock Interview
+                </button>
+            </div>
 
-            <main className="content">
-                <iframe 
-                    src="https://my.spline.design/nexbotrobotcharacterconcept-d536e6c996f8bd426a856c25e074ba70/" 
-                    allowFullScreen 
-                    className="spline-robot"
-                ></iframe>
-                <div className="ai-message">
-                    <h1>Welcome, {username}</h1>
-                    <p>Get Interview-Ready with AI-Powered Practice & Feedback</p>
-                    <button onClick={() => navigate('/interview')}>Start Mock Interview</button>
+            {/* Right — 3D Orb */}
+            <div style={{
+                flex: '1 1 350px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+            }}>
+                <div className="orb-scene">
+                    <div className="orb-glow"></div>
+                    <div className="orb-ring orb-ring-1"></div>
+                    <div className="orb-ring orb-ring-2"></div>
+                    <div className="orb-ring orb-ring-3"></div>
+                    <div className="orb-core">
+                        <div className="orb-inner"></div>
+                        <div className="orb-shine"></div>
+                    </div>
+                    <div className="orb-particles">
+                        {[...Array(12)].map((_, i) => (
+                            <span key={i} className="particle" style={{ '--i': i } as React.CSSProperties}></span>
+                        ))}
+                    </div>
                 </div>
-            </main>
+            </div>
         </div>
     );
 };
