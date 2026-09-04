@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth.routes';
 import interviewRoutes from './routes/interview.routes';
+import ragRoutes from './routes/rag.routes';
 
 const app = express();
 
@@ -11,6 +12,8 @@ app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 
 app.use('/auth', authRoutes);
 app.use('/api', interviewRoutes);
+app.use('/api', ragRoutes);
 app.use(express.static('public'));
 
 export default app;
+

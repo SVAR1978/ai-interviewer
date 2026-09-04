@@ -10,6 +10,7 @@ import ResumeAnalysis from './pages/ResumeAnalysis';
 import ScoreSummary from './pages/ScoreSummary';
 import ScoreDetail from './pages/ScoreDetail';
 import JobDescriptions from './pages/JobDescriptions';
+import InterviewSession from './pages/InterviewSession';
 import './styles/index.css';
 
 const App: React.FC = () => {
@@ -24,6 +25,7 @@ const App: React.FC = () => {
                 <Route element={<DashboardLayout />}>
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/interview" element={<Interview />} />
+                    <Route path="/interview/session" element={<InterviewSession />} />
                     <Route path="/resume" element={<ResumeAnalysis />} />
                     <Route path="/scores" element={<ScoreSummary />} />
                     <Route path="/score/detail" element={<ScoreDetail />} />

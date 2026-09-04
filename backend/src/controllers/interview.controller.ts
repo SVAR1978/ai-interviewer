@@ -4,6 +4,7 @@ import { AssemblyAI } from 'assemblyai';
 import { Score, QA, Qno, ImageModel } from '../models';
 import { config } from '../config/env';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { retrieveRelevantChunks, retrieveChunksForJD } from '../services/rag.service';
 
 const genAI = new GoogleGenerativeAI(config.geminiKey);
 const model = genAI.getGenerativeModel({ model: config.geminiModel });
@@ -23,7 +24,19 @@ export const getScore = async (req: Request, res: Response) => {
     let q = await QA.findOne({ username }).select('questionanswer');
     if (!q) return res.status(404).json({ error: 'No interview responses found' });
 
-    const feedbackPrompt = `Analyze the following interview responses: ${q.questionanswer}\nProvide a structured JSON object with the following format: ... Only return valid JSON. Do not add commentary.`;
+    // Retrieve JD context for grounded scoring
+    let jdContext = '';
+    try {
+      const relevantChunks = await retrieveRelevantChunks(q.questionanswer, username, 5);
+      if (relevantChunks.length > 0) {
+        jdContext = `\n\nJob Description Requirements (evaluate answers against these):\n` +
+          relevantChunks.map((c, i) => `[${c.section}]: ${c.chunkText}`).join('\n');
+      }
+    } catch {
+      // If RAG retrieval fails, continue without JD context
+    }
+
+    const feedbackPrompt = `Analyze the following interview responses: ${q.questionanswer}${jdContext}\nProvide a structured JSON object with the following format: ... Only return valid JSON. Do not add commentary.`;
 
     const result: any = await model.generateContent(feedbackPrompt);
     let feedbackJson: string = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '{}';
@@ -62,7 +75,7 @@ export const getScore = async (req: Request, res: Response) => {
 export const startInterview = async (req: Request, res: Response) => {
   try {
     const username = req.header('username') as string;
-    const { domain } = req.body as any;
+    const { domain, jobDescriptionId } = req.body as any;
 
     if (!domain) return res.status(400).json({ error: 'Domain is required' });
 
@@ -79,9 +92,43 @@ export const startInterview = async (req: Request, res: Response) => {
     }
 
     let i = parseInt(qnoRecord.qno, 10);
-    let promptText = i === 0 
-      ? `Generate a professional interview question in the domain of "${domain}".` 
-      : `Based on this previous Q&A history, generate a relevant follow-up interview question in the domain of "${domain}":\n${qaRecord.questionanswer}Only output the question itself.`;
+
+    // ── RAG Context Retrieval ────────────────────────────────────────
+    let ragContext = '';
+    try {
+      let relevantChunks;
+      if (jobDescriptionId) {
+        // Retrieve chunks scoped to a specific JD
+        const query = i === 0 ? domain : `${domain} ${qaRecord.questionanswer}`;
+        relevantChunks = await retrieveChunksForJD(query, jobDescriptionId, 5);
+      } else {
+        // Retrieve from all user's JDs
+        const query = i === 0 ? domain : `${domain} ${qaRecord.questionanswer}`;
+        relevantChunks = await retrieveRelevantChunks(query, username, 5);
+      }
+
+      if (relevantChunks && relevantChunks.length > 0) {
+        ragContext = '\n\nRelevant job description requirements to base your question on:\n' +
+          relevantChunks
+            .map((c, idx) => `[${c.section}]: ${c.chunkText}`)
+            .join('\n');
+      }
+    } catch {
+      // If RAG retrieval fails, fall back to non-grounded generation
+    }
+
+    // ── Question Generation ──────────────────────────────────────────
+    let promptText: string;
+
+    if (i === 0) {
+      promptText = ragContext
+        ? `You are an expert technical interviewer. Based on the following job description requirements, generate a targeted interview question in the domain of "${domain}".${ragContext}\n\nGenerate a specific, role-relevant question that directly tests skills mentioned in the job description. Only output the question itself.`
+        : `Generate a professional interview question in the domain of "${domain}".`;
+    } else {
+      promptText = ragContext
+        ? `You are an expert technical interviewer. Based on the following job description requirements and the candidate's previous responses, generate a relevant follow-up interview question in the domain of "${domain}".${ragContext}\n\nPrevious Q&A:\n${qaRecord.questionanswer}\n\nGenerate a follow-up question that digs deeper into the job requirements or probes areas the candidate hasn't covered yet. Only output the question itself.`
+        : `Based on this previous Q&A history, generate a relevant follow-up interview question in the domain of "${domain}":\n${qaRecord.questionanswer}Only output the question itself.`;
+    }
 
     const result: any = await model.generateContent(promptText);
     const question: string = await result.response.text();
@@ -92,7 +139,11 @@ export const startInterview = async (req: Request, res: Response) => {
     qnoRecord.qno = (i + 1).toString();
     await qnoRecord.save();
 
-    res.json({ qno: i + 1, question });
+    res.json({
+      qno: i + 1,
+      question,
+      ragGrounded: ragContext.length > 0,
+    });
   } catch (error) {
     console.error('Interview Error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
@@ -216,3 +267,4 @@ export const transcribeAudio = async (req: any, res: Response) => {
     res.status(500).send({ error: err.message });
   }
 };
+
