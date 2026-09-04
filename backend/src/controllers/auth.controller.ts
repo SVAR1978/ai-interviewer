@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models';
 import { config } from '../config/env';
+import { AuthRequest } from '../middleware/auth.middleware';
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -91,6 +92,21 @@ export const signin = async (req: Request, res: Response) => {
     return res.json({ mes: 'false', error: 'Invalid username/email or password' });
   } catch (error) {
     console.error('Signin Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const getProfile = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findOne({ username: req.username }).select('fullName username email');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    return res.json({
+      fullName: user.fullName || user.username.replace(/_\d{4,}$/, ''),
+      username: user.username,
+      email: user.email
+    });
+  } catch (error) {
+    console.error('Get Profile Error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };

@@ -6,11 +6,16 @@ import '../styles/dashboard-theme.css';
 const DashboardLayout: React.FC = () => {
     const [menuOpen, setMenuOpen] = useState(false);
     const navigate = useNavigate();
-    const username = localStorage.getItem('username');
+    const [displayName, setDisplayName] = useState(() => {
+        const fn = localStorage.getItem('fullName');
+        const un = localStorage.getItem('username');
+        return fn || (un ? un.replace(/_\d{4,}$/, '') : 'User');
+    });
 
     const handleLogout = () => {
         localStorage.removeItem('jwttoken');
         localStorage.removeItem('username');
+        localStorage.removeItem('fullName');
         navigate('/signin');
     };
 
@@ -67,7 +72,7 @@ const DashboardLayout: React.FC = () => {
                     </NavLink>
 
                     <div className="dash-user">
-                        <span className="dash-welcome">Hi, <span>{username || 'User'}</span></span>
+                        <span className="dash-welcome">Hi, <span>{displayName}</span></span>
                         <button onClick={handleLogout} className="dash-logout">
                             Logout
                         </button>

@@ -22,6 +22,8 @@ const Signin: React.FC = () => {
             });
             const data = await res.json();
             if (data.mes === 'true') {
+                const userFullName = data.fullName || (data.username ? data.username.replace(/_\d{4,}$/, '') : username.trim());
+                localStorage.setItem('fullName', userFullName);
                 localStorage.setItem('username', data.username || username.trim());
                 localStorage.setItem('jwttoken', data.jwttoken);
                 navigate('/dashboard');

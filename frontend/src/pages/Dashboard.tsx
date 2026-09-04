@@ -4,16 +4,40 @@ import '../styles/aifrontend.css';
 import '../styles/dashboard-theme.css';
 
 const Dashboard: React.FC = () => {
-    const [username, setUsername] = useState('');
+    const [displayName, setDisplayName] = useState(() => {
+        const fn = localStorage.getItem('fullName');
+        const un = localStorage.getItem('username');
+        return fn || (un ? un.replace(/_\d{4,}$/, '') : 'User');
+    });
     const navigate = useNavigate();
 
     useEffect(() => {
         const storedUser = localStorage.getItem('username');
-        if (!storedUser) {
+        const token = localStorage.getItem('jwttoken');
+        if (!storedUser || !token) {
             navigate('/signin');
             return;
         }
-        setUsername(storedUser);
+
+        const storedFullName = localStorage.getItem('fullName');
+        if (storedFullName) {
+            setDisplayName(storedFullName);
+        } else {
+            setDisplayName(storedUser.replace(/_\d{4,}$/, ''));
+        }
+
+        // Fetch user profile from backend to ensure accurate full name
+        fetch('http://localhost:3000/auth/profile', {
+            headers: { 'jwttoken': token }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.fullName) {
+                setDisplayName(data.fullName);
+                localStorage.setItem('fullName', data.fullName);
+            }
+        })
+        .catch(() => {});
     }, [navigate]);
 
     return (
@@ -42,7 +66,7 @@ const Dashboard: React.FC = () => {
                     WebkitTextFillColor: 'transparent',
                     lineHeight: '1.2',
                 }}>
-                    Welcome, {username}
+                    Welcome, {displayName}
                 </h1>
                 <p style={{
                     fontSize: '18px',
