@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Target, Loader2, Sparkles } from 'lucide-react';
 import { api } from '../services/api';
+import LoaderOverlay from '../components/LoaderOverlay';
 
 interface JDItem {
     _id: string;
@@ -63,7 +64,13 @@ const Interview: React.FC = () => {
     };
 
     return (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '70vh' }}>
+        <>
+            <LoaderOverlay 
+                isVisible={isLoading} 
+                text="Generating Questions..." 
+                subText="Please wait while the AI prepares your customized interview." 
+            />
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '70vh' }}>
             <div className="glass-panel" style={{ maxWidth: '500px', width: '100%' }}>
                 <div className="glass-header">
                     <h2>Start Mock Interview</h2>
@@ -140,6 +147,7 @@ const Interview: React.FC = () => {
                 </button>
             </div>
         </div>
+        </>
     );
 };
 

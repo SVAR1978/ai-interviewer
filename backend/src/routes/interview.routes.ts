@@ -11,7 +11,7 @@ router.post('/interview', interviewController.startInterview);
 router.post('/addanswer', interviewController.addAnswer);
 router.post('/home', interviewController.resetInterview);
 router.post('/checkscore', authenticate, interviewController.checkScoreHistory);
-router.post('/checkresume', authenticate, interviewController.resumeAnalysis);
+router.post('/checkresume', upload.single('resume'), interviewController.resumeAnalysis);
 router.post('/getimage', interviewController.getImage);
 router.post('/addimage', interviewController.addImage);
 router.post('/transcribe', upload.single('audio'), interviewController.transcribeAudio);

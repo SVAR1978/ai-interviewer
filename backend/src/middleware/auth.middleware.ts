@@ -15,6 +15,9 @@ export const verifyJWT = (token?: string): string | { error: string } => {
     return decoded.username;
   } catch (error: any) {
     console.error('JWT Verification Failed:', error.message || error);
+    if (error.name === 'TokenExpiredError') {
+      return { error: 'Session expired. Please sign in again.' };
+    }
     return { error: 'Invalid token' };
   }
 };

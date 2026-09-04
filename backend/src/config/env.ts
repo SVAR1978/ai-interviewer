@@ -6,7 +6,7 @@ export const config = {
   mongoURL: process.env.mongourl || '',
   jwtSecret: process.env.jsonpassword || '',
   geminiKey: process.env.GEMINI_API_KEY || process.env.gemini_key || '',
-  geminiModel: process.env.GEMINI_MODEL || 'gemini-1.5',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   assemblyAIKey: process.env.apiKey || '',
-  geminiEmbeddingModel: process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004',
+  geminiEmbeddingModel: process.env.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-001',
 };

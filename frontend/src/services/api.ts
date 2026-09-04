@@ -2,17 +2,19 @@ const API_URL = 'http://localhost:3000';
 
 export const api = {
   auth: {
-    signup: async (headers: any) => {
+    signup: async (data: { fullName: string; email: string; password: string; agreedToTerms?: boolean; username?: string }) => {
       const response = await fetch(`${API_URL}/auth/signup`, {
         method: 'POST',
-        headers: { ...headers }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
       });
       return response.json();
     },
-    signin: async (headers: any) => {
+    signin: async (data: { identifier?: string; username?: string; password?: string } | any) => {
       const response = await fetch(`${API_URL}/auth/signin`, {
         method: 'POST',
-        headers: { ...headers }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
       });
       return response.json();
     },

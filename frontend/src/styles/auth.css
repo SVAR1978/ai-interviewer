@@ -320,6 +320,94 @@
   color: #818cf8;
 }
 
+.password-toggle-btn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.password-toggle-btn:hover {
+  color: #a5b4fc;
+}
+
+.password-requirements {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+}
+
+.req-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  transition: all 0.2s ease;
+}
+
+.req-item.met {
+  color: #4ade80;
+}
+
+.password-match-hint {
+  font-size: 12px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.password-match-hint.matched {
+  color: #4ade80;
+}
+
+.password-match-hint.mismatched {
+  color: #f87171;
+}
+
+.terms-checkbox-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.4;
+  cursor: pointer;
+  user-select: none;
+  margin: 4px 0 2px;
+}
+
+.terms-checkbox-wrap input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: #6366f1;
+  cursor: pointer;
+}
+
+.terms-checkbox-wrap span a {
+  color: #818cf8;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.terms-checkbox-wrap span a:hover {
+  color: #a5b4fc;
+}
+
 /* --- Options row (remember me / forgot) --- */
 .auth-options {
   display: flex;
@@ -359,12 +447,13 @@
 /* --- Submit Button --- */
 .auth-submit {
   width: 100%;
-  padding: 14px 24px;
+  height: 48px;
+  padding: 0 24px;
   font-size: 15px;
   font-weight: 600;
   color: #fff;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  border: none;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   cursor: pointer;
   display: flex;
@@ -372,10 +461,12 @@
   justify-content: center;
   gap: 8px;
   font-family: inherit;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
-  margin-top: 4px;
+  margin-top: 6px;
+  box-sizing: border-box;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
 }
 
 .auth-submit::before {

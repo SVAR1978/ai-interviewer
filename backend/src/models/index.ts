@@ -1,8 +1,12 @@
 import mongoose, { Document } from 'mongoose';
 
 export interface IUser extends Document {
+  fullName?: string;
   username: string;
+  email?: string;
   password: string;
+  agreedToTerms?: boolean;
+  createdAt?: Date;
 }
 
 export interface IScore extends Document {
@@ -44,8 +48,12 @@ export interface IJDChunk extends Document {
 }
 
 const userSchema = new mongoose.Schema<IUser>({
-  username: String,
-  password: String,
+  fullName: { type: String, trim: true },
+  username: { type: String, required: true, unique: true, trim: true },
+  email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
+  password: { type: String, required: true },
+  agreedToTerms: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now },
 });
 
 const scoreSchema = new mongoose.Schema<IScore>({

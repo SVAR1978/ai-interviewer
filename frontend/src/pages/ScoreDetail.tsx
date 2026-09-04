@@ -1,39 +1,116 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import LoaderOverlay from '../components/LoaderOverlay';
 
 const ScoreDetail: React.FC = () => {
     const [data, setData] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
     const navigate = useNavigate();
 
-    useEffect(() => {
-        const fetchDetail = async () => {
-            const user = localStorage.getItem('username');
-            if (!user) return navigate('/signin');
+    const fetchDetail = async () => {
+        const user = localStorage.getItem('username');
+        if (!user) return navigate('/signin');
 
-            try {
-                const res = await fetch('http://localhost:3000/api/score', {
-                    method: 'POST',
-                    headers: { 'username': user }
-                });
-                const jsonData = await res.json();
-                setData(jsonData);
-            } catch {
-                alert('Failed to get score');
+        setError(null);
+        setIsLoading(true);
+
+        try {
+            const res = await fetch('http://localhost:3000/api/score', {
+                method: 'POST',
+                headers: { 'username': user }
+            });
+            const jsonData = await res.json();
+
+            if (!res.ok) {
+                setError(jsonData.error || 'Failed to generate score. Please try again.');
+                return;
             }
-        };
+
+            console.log('Score response:', jsonData);
+            setData(jsonData);
+        } catch {
+            setError('Failed to connect to the server. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchDetail();
     }, [navigate]);
 
-    if (!data) {
+    // Helper to render strengths (handles both string and array)
+    const renderStrengths = (strengths: any) => {
+        if (!strengths) return <p style={{ color: 'rgba(255,255,255,0.6)', margin: 0, fontStyle: 'italic' }}>No strengths data available.</p>;
+        if (Array.isArray(strengths)) {
+            return (
+                <ul style={{ margin: 0, paddingLeft: '20px', color: 'rgba(255,255,255,0.8)', lineHeight: '1.6', fontSize: '14px' }}>
+                    {strengths.map((s: string, i: number) => (
+                        <li key={i} style={{ marginBottom: '8px' }}>{s}</li>
+                    ))}
+                </ul>
+            );
+        }
+        return <p style={{ color: 'rgba(255,255,255,0.8)', margin: 0, lineHeight: '1.6', fontSize: '14px' }}>{String(strengths)}</p>;
+    };
+
+    // Helper to render improvement points (handles both string and array)
+    const renderImprovements = (points: any) => {
+        if (!points) return <p style={{ color: 'rgba(255,255,255,0.6)', margin: 0, fontStyle: 'italic' }}>No improvement areas identified.</p>;
+        if (Array.isArray(points)) {
+            return (
+                <ul style={{ margin: 0, paddingLeft: '20px', color: 'rgba(255,255,255,0.8)', lineHeight: '1.6', fontSize: '14px' }}>
+                    {points.map((p: string, i: number) => (
+                        <li key={i} style={{ marginBottom: '8px' }}>{String(p)}</li>
+                    ))}
+                </ul>
+            );
+        }
+        return <p style={{ color: 'rgba(255,255,255,0.8)', margin: 0, lineHeight: '1.6', fontSize: '14px' }}>{String(points)}</p>;
+    };
+
+    // Get score color based on value
+    const getScoreColor = (score: string) => {
+        const num = parseInt(score) || 0;
+        if (num >= 8) return '#4ade80';
+        if (num >= 6) return '#facc15';
+        if (num >= 4) return '#fb923c';
+        return '#f87171';
+    };
+
+    if (error) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-                <div style={{ textAlign: 'center' }}>
-                    <span className="auth-spinner" style={{ width: '40px', height: '40px', display: 'inline-block', marginBottom: '16px' }}></span>
-                    <h2 style={{ color: '#a5b4fc', margin: 0 }}>Analyzing Interview Performance...</h2>
+                <div className="glass-panel" style={{ textAlign: 'center', maxWidth: '500px', padding: '40px' }}>
+                    <h2 style={{ color: '#f87171', margin: '0 0 16px' }}>Score Generation Failed</h2>
+                    <p style={{ color: 'rgba(255,255,255,0.7)', margin: '0 0 24px', lineHeight: '1.6' }}>
+                        {error}
+                    </p>
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button className="btn-secondary" onClick={() => navigate('/interview')}>
+                            New Interview
+                        </button>
+                        <button className="btn-primary" onClick={fetchDetail} disabled={isLoading} style={{ width: 'auto', padding: '12px 24px' }}>
+                            {isLoading ? 'Retrying...' : 'Retry'}
+                        </button>
+                    </div>
                 </div>
             </div>
         );
     }
+
+    if (isLoading || !data) {
+        return (
+            <LoaderOverlay 
+                isVisible={true} 
+                text="Analyzing Interview Performance..." 
+                subText="The AI is evaluating your responses and generating detailed feedback. This may take a moment." 
+            />
+        );
+    }
+
+    const scoreValue = data.overall_score?.match?.(/\d+/)?.[0] || data.overall_score || '--';
 
     return (
         <div style={{ padding: '20px 0', display: 'flex', justifyContent: 'center' }}>
@@ -46,7 +123,9 @@ const ScoreDetail: React.FC = () => {
                     alignItems: 'flex-start',
                     borderBottom: '1px solid rgba(255,255,255,0.1)',
                     paddingBottom: '24px',
-                    marginBottom: '32px'
+                    marginBottom: '32px',
+                    flexWrap: 'wrap',
+                    gap: '16px'
                 }}>
                     <div>
                         <h2 style={{ 
@@ -77,28 +156,30 @@ const ScoreDetail: React.FC = () => {
                         <div style={{ 
                             fontSize: '36px', 
                             fontWeight: '800', 
-                            color: '#4ade80'
+                            color: getScoreColor(scoreValue)
                         }}>
-                            {data.overall_score || '--'}<span style={{ fontSize: '20px', color: 'rgba(255,255,255,0.3)' }}>/10</span>
+                            {scoreValue}<span style={{ fontSize: '20px', color: 'rgba(255,255,255,0.3)' }}>/10</span>
                         </div>
                     </div>
                 </div>
 
                 {/* Overall Feedback */}
-                <div style={{ marginBottom: '32px' }}>
-                    <h3 style={{ color: '#e2e8f0', fontSize: '18px', marginBottom: '12px' }}>Overall Assessment</h3>
-                    <div style={{ 
-                        background: 'rgba(255,255,255,0.03)', 
-                        padding: '20px', 
-                        borderRadius: '12px',
-                        border: '1px solid rgba(255,255,255,0.05)',
-                        color: 'rgba(255,255,255,0.8)',
-                        lineHeight: '1.7',
-                        fontSize: '15px'
-                    }}>
-                        {data.overall_feedback}
+                {data.overall_feedback && (
+                    <div style={{ marginBottom: '32px' }}>
+                        <h3 style={{ color: '#e2e8f0', fontSize: '18px', marginBottom: '12px' }}>Overall Assessment</h3>
+                        <div style={{ 
+                            background: 'rgba(255,255,255,0.03)', 
+                            padding: '20px', 
+                            borderRadius: '12px',
+                            border: '1px solid rgba(255,255,255,0.05)',
+                            color: 'rgba(255,255,255,0.8)',
+                            lineHeight: '1.7',
+                            fontSize: '15px'
+                        }}>
+                            {data.overall_feedback}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Strengths & Improvements Grid */}
                 <div className="dashboard-grid" style={{ marginBottom: '40px' }}>
@@ -116,9 +197,7 @@ const ScoreDetail: React.FC = () => {
                             </svg>
                             Key Strengths
                         </h3>
-                        <p style={{ color: 'rgba(255,255,255,0.8)', margin: 0, lineHeight: '1.6', fontSize: '14px' }}>
-                            {data.strengths}
-                        </p>
+                        {renderStrengths(data.strengths)}
                     </div>
 
                     {/* Areas for Improvement */}
@@ -136,17 +215,13 @@ const ScoreDetail: React.FC = () => {
                             </svg>
                             Areas for Improvement
                         </h3>
-                        <ul style={{ margin: 0, paddingLeft: '20px', color: 'rgba(255,255,255,0.8)', lineHeight: '1.6', fontSize: '14px' }}>
-                            {data.improvement_points?.map((p: string, i: number) => (
-                                <li key={i} style={{ marginBottom: '8px' }}>{p}</li>
-                            ))}
-                        </ul>
+                        {renderImprovements(data.improvement_points)}
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-                    <button className="btn-secondary" onClick={() => navigate('/dashboard')} style={{ minWidth: '150px' }}>
-                        Back to Dashboard
+                <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <button className="btn-secondary" onClick={() => navigate('/scores')} style={{ minWidth: '150px' }}>
+                        Score History
                     </button>
                     <button className="btn-primary" onClick={() => navigate('/interview')} style={{ minWidth: '200px' }}>
                         Start Another Interview

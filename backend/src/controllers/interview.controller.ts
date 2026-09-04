@@ -22,7 +22,15 @@ export const getScore = async (req: Request, res: Response) => {
     }
 
     let q = await QA.findOne({ username }).select('questionanswer');
-    if (!q) return res.status(404).json({ error: 'No interview responses found' });
+    if (!q || !q.questionanswer || q.questionanswer.trim() === '') {
+      return res.status(404).json({ error: 'No interview responses found. Please complete at least one Q&A before generating a score.' });
+    }
+
+    // Verify that there is at least one answer in the Q&A record
+    const answerCount = (q.questionanswer.match(/\nA\d+:/g) || []).length;
+    if (answerCount === 0) {
+      return res.status(400).json({ error: 'No answers found in your interview session. Please answer at least one question before generating a score.' });
+    }
 
     // Retrieve JD context for grounded scoring
     let jdContext = '';
@@ -36,21 +44,89 @@ export const getScore = async (req: Request, res: Response) => {
       // If RAG retrieval fails, continue without JD context
     }
 
-    const feedbackPrompt = `Analyze the following interview responses: ${q.questionanswer}${jdContext}\nProvide a structured JSON object with the following format: ... Only return valid JSON. Do not add commentary.`;
+    const feedbackPrompt = `You are an expert interview evaluator. Analyze the following interview Q&A responses and provide detailed, constructive feedback.
 
-    const result: any = await model.generateContent(feedbackPrompt);
-    let feedbackJson: string = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '{}';
+Interview Responses:
+${q.questionanswer}
+${jdContext}
 
-    if (feedbackJson.startsWith('```json')) {
-      feedbackJson = feedbackJson.replace(/^```json\s*/, '').replace(/```$/, '').trim();
+Return ONLY a valid JSON object with exactly this structure (no markdown, no commentary, no code fences):
+{
+  "overall_score": "7",
+  "overall_feedback": "A detailed 3-5 sentence assessment of the candidate's overall interview performance, communication clarity, and technical depth.",
+  "strengths": "A detailed paragraph describing 3-4 specific strengths demonstrated during the interview, with concrete examples from their answers.",
+  "improvement_points": [
+    "First specific area for improvement with actionable advice",
+    "Second specific area for improvement with actionable advice",
+    "Third specific area for improvement with actionable advice"
+  ]
+}
+
+Rules:
+- "overall_score" must be a single number from 1-10 as a string
+- "overall_feedback" must be a detailed paragraph (not a list)
+- "strengths" must be a detailed paragraph (not a list)
+- "improvement_points" must be an array of 3-5 specific, actionable strings
+- Return ONLY the JSON object, nothing else`;
+
+    // Retry with exponential backoff for transient API errors
+    const MAX_RETRIES = 3;
+    let result: any;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        result = await model.generateContent(feedbackPrompt);
+        break;
+      } catch (apiError: any) {
+        const isRetryable = apiError?.status === 503 || apiError?.status === 429;
+        if (isRetryable && attempt < MAX_RETRIES - 1) {
+          const delay = Math.pow(2, attempt) * 1000;
+          console.warn(`Gemini API returned ${apiError.status} during scoring, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          throw apiError;
+        }
+      }
     }
+
+    let feedbackJson: string = '';
+    try {
+      feedbackJson = await result.response.text();
+    } catch {
+      feedbackJson = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+    }
+    feedbackJson = feedbackJson.trim();
+
+    // Strip markdown code fences (```json ... ``` or ``` ... ```)
+    feedbackJson = feedbackJson.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+    // If the model returned extra text around the JSON, extract just the JSON object
+    const jsonMatch = feedbackJson.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      feedbackJson = jsonMatch[0];
+    }
+
+    console.log('Score raw output:', feedbackJson.substring(0, 200));
 
     let parsed: any;
     try {
       parsed = JSON.parse(feedbackJson);
     } catch (e) {
-      throw new Error('Failed to parse model output as JSON.');
+      console.error('Failed to parse score JSON:', feedbackJson);
+      throw new Error('Failed to parse model output as JSON. The AI returned an invalid response.');
     }
+
+    // Normalize the parsed data to ensure expected fields exist
+    parsed = {
+      overall_score: String(parsed.overall_score || parsed.score || parsed.overallScore || '0'),
+      overall_feedback: parsed.overall_feedback || parsed.feedback || parsed.overallFeedback || parsed.summary || 'No detailed feedback available.',
+      strengths: parsed.strengths || parsed.key_strengths || parsed.keyStrengths || 'No strengths analysis available.',
+      improvement_points: Array.isArray(parsed.improvement_points) ? parsed.improvement_points
+        : Array.isArray(parsed.improvements) ? parsed.improvements
+        : Array.isArray(parsed.areas_for_improvement) ? parsed.areas_for_improvement
+        : Array.isArray(parsed.weaknesses) ? parsed.weaknesses
+        : typeof parsed.improvement_points === 'string' ? [parsed.improvement_points]
+        : ['No specific improvement areas identified.']
+    };
 
     const numericScore = parsed.overall_score?.match(/\d+/)?.[0] || '0';
     lastscore.lastscore += lastscore.lastscore ? `_${numericScore}` : numericScore;
@@ -130,7 +206,25 @@ export const startInterview = async (req: Request, res: Response) => {
         : `Based on this previous Q&A history, generate a relevant follow-up interview question in the domain of "${domain}":\n${qaRecord.questionanswer}Only output the question itself.`;
     }
 
-    const result: any = await model.generateContent(promptText);
+    // Retry with exponential backoff for transient API errors (e.g. 503)
+    const MAX_RETRIES = 3;
+    let result: any;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        result = await model.generateContent(promptText);
+        break; // success
+      } catch (apiError: any) {
+        const isRetryable = apiError?.status === 503 || apiError?.status === 429;
+        if (isRetryable && attempt < MAX_RETRIES - 1) {
+          const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+          console.warn(`Gemini API returned ${apiError.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          throw apiError; // rethrow on final attempt or non-retryable error
+        }
+      }
+    }
+
     const question: string = await result.response.text();
 
     qaRecord.questionanswer += `\nQ${i + 1}: ${question}`;
@@ -144,9 +238,13 @@ export const startInterview = async (req: Request, res: Response) => {
       question,
       ragGrounded: ragContext.length > 0,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Interview Error:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    if (error?.status === 503 || error?.status === 429) {
+      res.status(503).json({ error: 'The AI model is currently experiencing high demand. Please try again in a few moments.' });
+    } else {
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
   }
 };
 
@@ -207,26 +305,147 @@ export const checkScoreHistory = async (req: AuthRequest, res: Response) => {
   return res.json({ validUser: true, array: lastFive, suggestion: 'Not enough scores to analyze.' });
 };
 
-export const resumeAnalysis = async (req: AuthRequest, res: Response) => {
+export const resumeAnalysis = async (req: any, res: Response) => {
   try {
-    const { resume, profile } = req.body as any;
-    if (!resume || !profile) return res.status(400).json({ error: 'Resume and profile are required' });
+    const { profile } = req.body as any;
+    let resumeText = '';
 
-    const prompts = [
-      `${resume} Score my resume for ${profile} out of 10.`,
-      `${resume} Good things about my resume for ${profile} (50-70 words).`,
-      `${resume} Improvement points for ${profile} (50-70 words).`
-    ];
+    // Handle PDF file upload
+    if (req.file) {
+      try {
+        const pdfModule = require('pdf-parse');
+        const parseFn = typeof pdfModule === 'function'
+          ? pdfModule
+          : (typeof pdfModule?.default === 'function' ? pdfModule.default : null);
 
-    const results = await Promise.all(prompts.map(p => model.generateContent(p)));
-    
-    res.json({
-      score: results[0].response.text(),
-      goodPoints: results[1].response.text(),
-      improvementPoints: results[2].response.text(),
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
+        if (parseFn) {
+          const pdfData = await parseFn(req.file.buffer);
+          resumeText = pdfData?.text || '';
+        } else if (pdfModule?.PDFParse) {
+          const parser = new pdfModule.PDFParse();
+          const pdfData = await parser.parse(req.file.buffer);
+          resumeText = pdfData?.text || '';
+        } else {
+          throw new Error(`pdf-parse is neither a function nor contains PDFParse (type: ${typeof pdfModule})`);
+        }
+      } catch (pdfErr: any) {
+        console.error('Failed to parse uploaded PDF buffer:', pdfErr);
+        return res.status(400).json({ error: 'Could not parse the PDF file. Please verify it is a valid PDF and not password protected.' });
+      }
+    } else if (req.body.resume) {
+      // Fallback: accept raw text in body
+      resumeText = req.body.resume;
+    }
+
+    if (!resumeText || !profile) {
+      return res.status(400).json({ error: 'Resume file and target profile are required.' });
+    }
+
+    if (resumeText.trim().length < 50) {
+      return res.status(400).json({ error: 'Could not extract enough text from the resume. Please upload a valid PDF.' });
+    }
+
+    const feedbackPrompt = `You are an expert resume reviewer and career advisor. Analyze the following resume text for the target profile of "${profile}" and provide detailed, actionable feedback.
+
+Resume Text:
+${resumeText}
+
+Return ONLY a valid JSON object with exactly this structure (no markdown, no code fences, no commentary):
+{
+  "score": "7",
+  "summary": "A 2-3 sentence overall assessment of the resume quality and fit for the ${profile} role.",
+  "strengths": [
+    "First specific strength with explanation",
+    "Second specific strength with explanation",
+    "Third specific strength with explanation"
+  ],
+  "improvements": [
+    "First specific improvement area with actionable advice",
+    "Second specific improvement area with actionable advice",
+    "Third specific improvement area with actionable advice"
+  ],
+  "missing_skills": [
+    "Important skill/technology missing for the ${profile} role",
+    "Another missing skill"
+  ],
+  "formatting_tips": [
+    "Specific formatting or structure suggestion",
+    "Another formatting tip"
+  ],
+  "ats_score": "6",
+  "ats_feedback": "Brief assessment of how well this resume would perform with Applicant Tracking Systems."
+}
+
+Rules:
+- "score" and "ats_score" must be single numbers from 1-10 as strings
+- All array fields must contain 2-5 specific, detailed items
+- Be constructive but honest
+- Return ONLY the JSON object`;
+
+    // Retry with exponential backoff
+    const MAX_RETRIES = 3;
+    let result: any;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        result = await model.generateContent(feedbackPrompt);
+        break;
+      } catch (apiError: any) {
+        const isRetryable = apiError?.status === 503 || apiError?.status === 429;
+        if (isRetryable && attempt < MAX_RETRIES - 1) {
+          const delay = Math.pow(2, attempt) * 1000;
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          throw apiError;
+        }
+      }
+    }
+
+    let responseText = '';
+    try {
+      responseText = await result.response.text();
+    } catch {
+      responseText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+    }
+    responseText = responseText.trim();
+
+    // Strip code fences
+    responseText = responseText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+    // Extract JSON object
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      responseText = jsonMatch[0];
+    }
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(responseText);
+    } catch {
+      console.error('Failed to parse resume analysis JSON:', responseText.substring(0, 300));
+      return res.status(500).json({ error: 'AI returned an invalid response. Please try again.' });
+    }
+
+    // Normalize
+    parsed = {
+      score: String(parsed.score || '0'),
+      summary: parsed.summary || 'No summary available.',
+      strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [parsed.strengths || 'N/A'],
+      improvements: Array.isArray(parsed.improvements) ? parsed.improvements : [parsed.improvements || 'N/A'],
+      missing_skills: Array.isArray(parsed.missing_skills) ? parsed.missing_skills : [],
+      formatting_tips: Array.isArray(parsed.formatting_tips) ? parsed.formatting_tips : [],
+      ats_score: String(parsed.ats_score || '0'),
+      ats_feedback: parsed.ats_feedback || 'No ATS feedback available.',
+      resumeText
+    };
+
+    res.json(parsed);
+  } catch (error: any) {
+    console.error('Resume Analysis Error:', error);
+    if (error?.status === 503 || error?.status === 429) {
+      res.status(503).json({ error: 'The AI model is currently experiencing high demand. Please try again shortly.' });
+    } else {
+      res.status(500).json({ error: 'Failed to analyze resume. Please try again.' });
+    }
   }
 };
 

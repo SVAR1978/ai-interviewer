@@ -10,7 +10,10 @@ const LandingPage: React.FC = () => {
     useEffect(() => {
         const handleScroll = () => setScrollY(window.scrollY);
         window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
+
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+        };
     }, []);
 
     return (
@@ -73,10 +76,7 @@ const LandingPage: React.FC = () => {
             {/* Hero Section */}
             <section className="hero-section">
                 <div className="hero-content">
-                    <div className="hero-badge">
-                        <span className="badge-dot"></span>
-                        <span>AI-Powered Interview Preparation</span>
-                    </div>
+
                     <h1 className="hero-title">
                         Ace Your Next
                         <br />
@@ -172,7 +172,6 @@ const LandingPage: React.FC = () => {
             <section className="features-section" id="features">
                 <div className="section-container">
                     <div className="section-header">
-                        <span className="section-tag">Features</span>
                         <h2 className="section-title">Everything You Need to <span className="gradient-text">Succeed</span></h2>
                         <p className="section-desc">Powerful tools designed to transform your interview performance</p>
                     </div>
@@ -248,7 +247,6 @@ const LandingPage: React.FC = () => {
             <section className="how-section" id="how-it-works">
                 <div className="section-container">
                     <div className="section-header">
-                        <span className="section-tag">Process</span>
                         <h2 className="section-title">How It <span className="gradient-text">Works</span></h2>
                         <p className="section-desc">Get started in minutes — no setup required</p>
                     </div>
@@ -282,7 +280,6 @@ const LandingPage: React.FC = () => {
             <section className="testimonials-section" id="testimonials">
                 <div className="section-container">
                     <div className="section-header">
-                        <span className="section-tag">Testimonials</span>
                         <h2 className="section-title">Loved by <span className="gradient-text">Thousands</span></h2>
                         <p className="section-desc">See what our users say about their experience</p>
                     </div>
@@ -336,20 +333,7 @@ const LandingPage: React.FC = () => {
                 </div>
             </section>
 
-            {/* CTA Section */}
-            <section className="cta-section">
-                <div className="cta-glow"></div>
-                <div className="section-container cta-inner">
-                    <h2>Ready to Land Your Dream Job?</h2>
-                    <p>Join thousands of candidates who prepared smarter with AI.</p>
-                    <button className="btn-primary btn-lg" onClick={() => navigate('/signup')}>
-                        Get Started — It's Free
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M5 12h14M12 5l7 7-7 7"/>
-                        </svg>
-                    </button>
-                </div>
-            </section>
+
 
             {/* Footer */}
             <footer className="landing-footer">

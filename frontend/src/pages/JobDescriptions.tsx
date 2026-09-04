@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, ClipboardList, Inbox, Puzzle, Calendar, CheckCircle2, AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import { api } from '../services/api';
+import LoaderOverlay from '../components/LoaderOverlay';
 
 interface JDItem {
     _id: string;
@@ -107,7 +108,13 @@ const JobDescriptions: React.FC = () => {
     };
 
     return (
-        <div style={{ padding: '20px 0' }}>
+        <>
+            <LoaderOverlay 
+                isVisible={isLoading} 
+                text="Embedding & Processing..." 
+                subText="Please wait while the AI analyzes and embeds the job description." 
+            />
+            <div style={{ padding: '20px 0' }}>
             <div className="glass-header">
                 <h2>Job Description Manager</h2>
                 <p>Upload JDs to ground your AI interviews and resume gap analysis</p>
@@ -276,6 +283,7 @@ const JobDescriptions: React.FC = () => {
                 </div>
             </div>
         </div>
+        </>
     );
 };
 

@@ -207,12 +207,12 @@ export async function retrieveRelevantChunks(
   username: string,
   topK: number = 5
 ): Promise<(IJDChunk & { similarity: number })[]> {
-  // 1. Generate query embedding
-  const queryEmbedding = await generateEmbedding(query);
-
-  // 2. Load all chunks for this user
+  // 1. Check if chunks exist before calling embedding API
   const allChunks = await JDChunk.find({ username }).lean();
   if (allChunks.length === 0) return [];
+
+  // 2. Generate query embedding
+  const queryEmbedding = await generateEmbedding(query);
 
   // 3. Compute similarities
   const scored = allChunks.map(chunk => ({
@@ -233,9 +233,10 @@ export async function retrieveChunksForJD(
   jobDescriptionId: string,
   topK: number = 5
 ): Promise<(IJDChunk & { similarity: number })[]> {
-  const queryEmbedding = await generateEmbedding(query);
   const chunks = await JDChunk.find({ jobDescriptionId }).lean();
   if (chunks.length === 0) return [];
+
+  const queryEmbedding = await generateEmbedding(query);
 
   const scored = chunks.map(chunk => ({
     ...chunk,

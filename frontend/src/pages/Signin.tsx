@@ -17,15 +17,16 @@ const Signin: React.FC = () => {
         try {
             const res = await fetch('http://localhost:3000/auth/signin', {
                 method: 'POST',
-                headers: { username, password }
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier: username.trim(), password })
             });
             const data = await res.json();
             if (data.mes === 'true') {
-                localStorage.setItem('username', username);
+                localStorage.setItem('username', data.username || username.trim());
                 localStorage.setItem('jwttoken', data.jwttoken);
                 navigate('/dashboard');
             } else {
-                setMessage('Invalid credentials. Please try again.');
+                setMessage(data.error || 'Invalid credentials. Please try again.');
             }
         } catch (err) {
             setMessage('Unable to connect to the server.');
@@ -101,7 +102,7 @@ const Signin: React.FC = () => {
 
                         <form onSubmit={handleLogin} className="auth-form">
                             <div className="auth-field">
-                                <label htmlFor="signin-username">Username</label>
+                                <label htmlFor="signin-username">Username or Email</label>
                                 <div className="auth-input-wrap">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="input-icon">
                                         <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
@@ -111,8 +112,8 @@ const Signin: React.FC = () => {
                                         id="signin-username"
                                         type="text"
                                         required
-                                        autoComplete="off"
-                                        placeholder="Enter your username"
+                                        autoComplete="username"
+                                        placeholder="Enter your username or email"
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
                                     />

@@ -1,13 +1,19 @@
 body {
     margin: 0;
     padding: 0;
-    height: 100vh;
-    width: 100vw;
     background-color: #050510;
-    overflow: hidden;
     font-family: 'Segoe UI', sans-serif;
     position: relative;
   }
+
+  /* Allow landing page to scroll naturally */
+  body.landing-page {
+    min-height: 100vh;
+    width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
   
   /* ===== NAVBAR ===== */
   .logo {
