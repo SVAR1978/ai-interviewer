@@ -18,6 +18,30 @@ export const api = {
       });
       return response.json();
     },
+    forgotPassword: async (email: string) => {
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      return response.json();
+    },
+    verifyOtp: async (email: string, otp: string) => {
+      const response = await fetch(`${API_URL}/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp })
+      });
+      return response.json();
+    },
+    resetPassword: async (email: string, otp: string, newPassword: string) => {
+      const response = await fetch(`${API_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp, newPassword })
+      });
+      return response.json();
+    },
   },
   interview: {
     start: async (domain: string, username: string, jobDescriptionId?: string) => {

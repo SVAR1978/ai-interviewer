@@ -47,6 +47,13 @@ export interface IJDChunk extends Document {
   section: string;
 }
 
+export interface IPasswordResetOTP extends Document {
+  email: string;
+  otp: string;
+  expiresAt: Date;
+  createdAt: Date;
+}
+
 const userSchema = new mongoose.Schema<IUser>({
   fullName: { type: String, trim: true },
   username: { type: String, required: true, unique: true, trim: true },
@@ -94,6 +101,13 @@ const jdChunkSchema = new mongoose.Schema<IJDChunk>({
   section: { type: String, default: 'general' },
 });
 
+const passwordResetOTPSchema = new mongoose.Schema<IPasswordResetOTP>({
+  email: { type: String, required: true, lowercase: true, trim: true, index: true },
+  otp: { type: String, required: true },
+  expiresAt: { type: Date, required: true, expires: 0 },
+  createdAt: { type: Date, default: Date.now },
+});
+
 export const User = mongoose.model<IUser>('User', userSchema);
 export const Score = mongoose.model<IScore>('Score', scoreSchema);
 export const QA = mongoose.model<IQA>('QA', qaSchema);
@@ -101,4 +115,5 @@ export const Qno = mongoose.model<IQno>('Qno', qnoSchema);
 export const ImageModel = mongoose.model<IImage>('Image', imageSchema);
 export const JobDescription = mongoose.model<IJobDescription>('JobDescription', jobDescriptionSchema);
 export const JDChunk = mongoose.model<IJDChunk>('JDChunk', jdChunkSchema);
+export const PasswordResetOTP = mongoose.model<IPasswordResetOTP>('PasswordResetOTP', passwordResetOTPSchema);
 

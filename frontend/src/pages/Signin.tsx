@@ -4,7 +4,12 @@ import { Star } from 'lucide-react';
 import '../styles/auth.css';
 
 const Signin: React.FC = () => {
-    const [username, setUsername] = useState('');
+    const [rememberMe, setRememberMe] = useState<boolean>(() => {
+        return localStorage.getItem('rememberMe') === 'true';
+    });
+    const [username, setUsername] = useState<string>(() => {
+        return localStorage.getItem('rememberedIdentifier') || '';
+    });
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
@@ -26,6 +31,15 @@ const Signin: React.FC = () => {
                 localStorage.setItem('fullName', userFullName);
                 localStorage.setItem('username', data.username || username.trim());
                 localStorage.setItem('jwttoken', data.jwttoken);
+
+                if (rememberMe) {
+                    localStorage.setItem('rememberedIdentifier', username.trim());
+                    localStorage.setItem('rememberMe', 'true');
+                } else {
+                    localStorage.removeItem('rememberedIdentifier');
+                    localStorage.removeItem('rememberMe');
+                }
+
                 navigate('/dashboard');
             } else {
                 setMessage(data.error || 'Invalid credentials. Please try again.');
@@ -143,11 +157,15 @@ const Signin: React.FC = () => {
 
                             <div className="auth-options">
                                 <label className="auth-checkbox">
-                                    <input type="checkbox" />
+                                    <input
+                                        type="checkbox"
+                                        checked={rememberMe}
+                                        onChange={(e) => setRememberMe(e.target.checked)}
+                                    />
                                     <span className="checkmark"></span>
                                     Remember me
                                 </label>
-                                <a href="#" className="auth-link-subtle">Forgot password?</a>
+                                <Link to="/forgot-password" className="auth-link-subtle">Forgot password?</Link>
                             </div>
 
                             <button type="submit" className="auth-submit" disabled={loading}>
