@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { User } from '../models';
+import { User, PasswordResetOTP } from '../models';
 import { config } from '../config/env';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { emailService } from '../services/email.service';
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -108,5 +109,115 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Get Profile Error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const forgotPassword = async (req: Request, res: Response) => {
+  try {
+    const email = (req.body.email || req.headers['email'] || '') as string;
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Email address is required' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const existingUser = await User.findOne({ email: cleanEmail });
+
+    if (!existingUser) {
+      return res.status(404).json({ success: false, error: 'No account found with this email address' });
+    }
+
+    // Generate 6-digit numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Clear previous OTPs for this email and save the new one
+    await PasswordResetOTP.deleteMany({ email: cleanEmail });
+    const resetDoc = new PasswordResetOTP({
+      email: cleanEmail,
+      otp,
+      expiresAt,
+      createdAt: new Date(),
+    });
+    await resetDoc.save();
+
+    // Send email via Nodemailer worker
+    await emailService.sendPasswordResetOTP(cleanEmail, otp);
+
+    return res.json({
+      success: true,
+      message: 'A 6-digit verification code has been sent to your email address.',
+    });
+  } catch (error) {
+    console.error('Forgot Password Error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to process password reset request' });
+  }
+};
+
+export const verifyOTP = async (req: Request, res: Response) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, error: 'Email and OTP code are required' });
+    }
+
+    const cleanEmail = (email as string).toLowerCase().trim();
+    const cleanOtp = (otp as string).trim();
+
+    const record = await PasswordResetOTP.findOne({ email: cleanEmail, otp: cleanOtp });
+    if (!record) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired verification code' });
+    }
+
+    if (new Date() > record.expiresAt) {
+      await PasswordResetOTP.deleteOne({ _id: record._id });
+      return res.status(400).json({ success: false, error: 'Verification code has expired. Please request a new one.' });
+    }
+
+    return res.json({ success: true, message: 'Code verified successfully' });
+  } catch (error) {
+    console.error('Verify OTP Error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to verify OTP' });
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ success: false, error: 'Email, OTP, and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, error: 'Password must be at least 6 characters long' });
+    }
+
+    const cleanEmail = (email as string).toLowerCase().trim();
+    const cleanOtp = (otp as string).trim();
+
+    const record = await PasswordResetOTP.findOne({ email: cleanEmail, otp: cleanOtp });
+    if (!record) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired verification code' });
+    }
+
+    if (new Date() > record.expiresAt) {
+      await PasswordResetOTP.deleteOne({ _id: record._id });
+      return res.status(400).json({ success: false, error: 'Verification code has expired. Please request a new one.' });
+    }
+
+    const user = await User.findOne({ email: cleanEmail });
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User account not found' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    // Invalidate the OTP after use
+    await PasswordResetOTP.deleteMany({ email: cleanEmail });
+
+    return res.json({ success: true, message: 'Password has been reset successfully. You can now sign in.' });
+  } catch (error) {
+    console.error('Reset Password Error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to reset password' });
   }
 };

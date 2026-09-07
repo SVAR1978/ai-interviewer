@@ -93,11 +93,6 @@ const LandingPage: React.FC = () => {
                                 <path d="M5 12h14M12 5l7 7-7 7"/>
                             </svg>
                         </button>
-                        <button className="btn-outline btn-lg" onClick={() => {
-                            document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
-                        }}>
-                            See How It Works
-                        </button>
                     </div>
                     <div className="hero-stats">
                         <div className="stat">

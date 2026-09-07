@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mic, MicOff, Send, Loader2, StopCircle, Camera } from 'lucide-react';
-import { api } from '../services/api';
 import LoaderOverlay from '../components/LoaderOverlay';
 
 const InterviewSession: React.FC = () => {

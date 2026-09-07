@@ -6,7 +6,7 @@ import '../styles/dashboard-theme.css';
 const DashboardLayout: React.FC = () => {
     const [menuOpen, setMenuOpen] = useState(false);
     const navigate = useNavigate();
-    const [displayName, setDisplayName] = useState(() => {
+    const [displayName] = useState(() => {
         const fn = localStorage.getItem('fullName');
         const un = localStorage.getItem('username');
         return fn || (un ? un.replace(/_\d{4,}$/, '') : 'User');

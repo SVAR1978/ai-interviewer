@@ -5,6 +5,7 @@ import { Score, QA, Qno, ImageModel } from '../models';
 import { config } from '../config/env';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { retrieveRelevantChunks, retrieveChunksForJD } from '../services/rag.service';
+import { redisService } from '../services/redis.service';
 
 const genAI = new GoogleGenerativeAI(config.geminiKey);
 const model = genAI.getGenerativeModel({ model: config.geminiModel });
@@ -21,13 +22,19 @@ export const getScore = async (req: Request, res: Response) => {
       await lastscore.save();
     }
 
-    let q = await QA.findOne({ username }).select('questionanswer');
-    if (!q || !q.questionanswer || q.questionanswer.trim() === '') {
+    let qaTranscript = await redisService.getSessionQA(username);
+    let q: any = null;
+    if (!qaTranscript) {
+      q = await QA.findOne({ username }).select('questionanswer');
+      qaTranscript = q?.questionanswer || '';
+    }
+
+    if (!qaTranscript || qaTranscript.trim() === '') {
       return res.status(404).json({ error: 'No interview responses found. Please complete at least one Q&A before generating a score.' });
     }
 
     // Verify that there is at least one answer in the Q&A record
-    const answerCount = (q.questionanswer.match(/\nA\d+:/g) || []).length;
+    const answerCount = (qaTranscript.match(/\nA\d+:/g) || []).length;
     if (answerCount === 0) {
       return res.status(400).json({ error: 'No answers found in your interview session. Please answer at least one question before generating a score.' });
     }
@@ -35,7 +42,7 @@ export const getScore = async (req: Request, res: Response) => {
     // Retrieve JD context for grounded scoring
     let jdContext = '';
     try {
-      const relevantChunks = await retrieveRelevantChunks(q.questionanswer, username, 5);
+      const relevantChunks = await retrieveRelevantChunks(qaTranscript, username, 5);
       if (relevantChunks.length > 0) {
         jdContext = `\n\nJob Description Requirements (evaluate answers against these):\n` +
           relevantChunks.map((c, i) => `[${c.section}]: ${c.chunkText}`).join('\n');
@@ -47,7 +54,7 @@ export const getScore = async (req: Request, res: Response) => {
     const feedbackPrompt = `You are an expert interview evaluator. Analyze the following interview Q&A responses and provide detailed, constructive feedback.
 
 Interview Responses:
-${q.questionanswer}
+${qaTranscript}
 ${jdContext}
 
 Return ONLY a valid JSON object with exactly this structure (no markdown, no commentary, no code fences):
@@ -132,8 +139,18 @@ Rules:
     lastscore.lastscore += lastscore.lastscore ? `_${numericScore}` : numericScore;
     await lastscore.save();
 
-    q.questionanswer = '';
-    await q.save();
+    // Clear session from Redis memory and invalidate score history cache
+    await redisService.clearInterviewSession(username);
+    await redisService.invalidateScoreHistory(username);
+
+    // Also reset MongoDB records
+    if (!q) {
+      q = await QA.findOne({ username });
+    }
+    if (q) {
+      q.questionanswer = '';
+      await q.save();
+    }
 
     let qnoRecord = await Qno.findOne({ username });
     if (qnoRecord) {
@@ -155,19 +172,34 @@ export const startInterview = async (req: Request, res: Response) => {
 
     if (!domain) return res.status(400).json({ error: 'Domain is required' });
 
-    let qaRecord = await QA.findOne({ username });
-    if (!qaRecord) {
+    // ── Fast Redis Session Lookup (with MongoDB fallback) ───────────
+    let qa = await redisService.getSessionQA(username);
+    let cachedQno = await redisService.getQuestionNo(username);
+
+    let qaRecord: any = null;
+    let qnoRecord: any = null;
+
+    if (qa === null || cachedQno === null) {
+      qaRecord = await QA.findOne({ username });
+      if (!qaRecord) {
         qaRecord = new QA({ username, questionanswer: '' });
         await qaRecord.save();
+      }
+      qa = qaRecord.questionanswer || '';
+
+      qnoRecord = await Qno.findOne({ username });
+      if (!qnoRecord) {
+        qnoRecord = new Qno({ username, qno: '0' });
+        await qnoRecord.save();
+      }
+      cachedQno = parseInt(qnoRecord.qno, 10);
+
+      // Warm up Redis session cache with a 2-hour TTL
+      await redisService.setSessionQA(username, qa, 7200);
+      await redisService.setQuestionNo(username, cachedQno, 7200);
     }
 
-    let qnoRecord = await Qno.findOne({ username });
-    if (!qnoRecord) {
-      qnoRecord = new Qno({ username, qno: '0' });
-      await qnoRecord.save();
-    }
-
-    let i = parseInt(qnoRecord.qno, 10);
+    let i = cachedQno;
 
     // ── RAG Context Retrieval ────────────────────────────────────────
     let ragContext = '';
@@ -175,11 +207,11 @@ export const startInterview = async (req: Request, res: Response) => {
       let relevantChunks;
       if (jobDescriptionId) {
         // Retrieve chunks scoped to a specific JD
-        const query = i === 0 ? domain : `${domain} ${qaRecord.questionanswer}`;
+        const query = i === 0 ? domain : `${domain} ${qa}`;
         relevantChunks = await retrieveChunksForJD(query, jobDescriptionId, 5);
       } else {
         // Retrieve from all user's JDs
-        const query = i === 0 ? domain : `${domain} ${qaRecord.questionanswer}`;
+        const query = i === 0 ? domain : `${domain} ${qa}`;
         relevantChunks = await retrieveRelevantChunks(query, username, 5);
       }
 
@@ -202,8 +234,8 @@ export const startInterview = async (req: Request, res: Response) => {
         : `Generate a professional interview question in the domain of "${domain}".`;
     } else {
       promptText = ragContext
-        ? `You are an expert technical interviewer. Based on the following job description requirements and the candidate's previous responses, generate a relevant follow-up interview question in the domain of "${domain}".${ragContext}\n\nPrevious Q&A:\n${qaRecord.questionanswer}\n\nGenerate a follow-up question that digs deeper into the job requirements or probes areas the candidate hasn't covered yet. Only output the question itself.`
-        : `Based on this previous Q&A history, generate a relevant follow-up interview question in the domain of "${domain}":\n${qaRecord.questionanswer}Only output the question itself.`;
+        ? `You are an expert technical interviewer. Based on the following job description requirements and the candidate's previous responses, generate a relevant follow-up interview question in the domain of "${domain}".${ragContext}\n\nPrevious Q&A:\n${qa}\n\nGenerate a follow-up question that digs deeper into the job requirements or probes areas the candidate hasn't covered yet. Only output the question itself.`
+        : `Based on this previous Q&A history, generate a relevant follow-up interview question in the domain of "${domain}":\n${qa}Only output the question itself.`;
     }
 
     // Retry with exponential backoff for transient API errors (e.g. 503)
@@ -227,11 +259,24 @@ export const startInterview = async (req: Request, res: Response) => {
 
     const question: string = await result.response.text();
 
-    qaRecord.questionanswer += `\nQ${i + 1}: ${question}`;
-    await qaRecord.save();
+    const updatedQA = `${qa}\nQ${i + 1}: ${question}`;
 
-    qnoRecord.qno = (i + 1).toString();
-    await qnoRecord.save();
+    // 1. Fast update in Redis memory
+    await redisService.setSessionQA(username, updatedQA, 7200);
+    await redisService.setQuestionNo(username, i + 1, 7200);
+
+    // 2. Sync to MongoDB for persistence
+    if (!qaRecord) qaRecord = await QA.findOne({ username });
+    if (qaRecord) {
+      qaRecord.questionanswer = updatedQA;
+      await qaRecord.save();
+    }
+
+    if (!qnoRecord) qnoRecord = await Qno.findOne({ username });
+    if (qnoRecord) {
+      qnoRecord.qno = (i + 1).toString();
+      await qnoRecord.save();
+    }
 
     res.json({
       qno: i + 1,
@@ -253,17 +298,24 @@ export const addAnswer = async (req: Request, res: Response) => {
     const username = req.header('username') as string;
     const { answer } = req.body as any;
 
+    // 1. Fast read question number from Redis
+    let qIndex = await redisService.getQuestionNo(username);
+    let qnoRecord: any = null;
+    if (qIndex === null) {
+      qnoRecord = await Qno.findOne({ username });
+      if (!qnoRecord) return res.status(400).json({ error: 'No question found' });
+      qIndex = parseInt(qnoRecord.qno, 10);
+    }
+
+    // 2. Fast append in Redis memory (O(1) sub-millisecond)
+    await redisService.appendSessionAnswer(username, qIndex, answer);
+
+    // 3. Sync to MongoDB for persistent backup
     let qaRecord = await QA.findOne({ username });
     if (!qaRecord) {
       qaRecord = new QA({ username, questionanswer: '' });
-      await qaRecord.save();
     }
-
-    let qnoRecord = await Qno.findOne({ username });
-    if (!qnoRecord) return res.status(400).json({ error: 'No question found' });
-
-    let i = parseInt(qnoRecord.qno, 10);
-    qaRecord.questionanswer += `\nA${i}: ${answer}`;
+    qaRecord.questionanswer += `\nA${qIndex}: ${answer}`;
     await qaRecord.save();
 
     res.json({ message: 'Answer added successfully' });
@@ -275,6 +327,10 @@ export const addAnswer = async (req: Request, res: Response) => {
 export const resetInterview = async (req: Request, res: Response) => {
   try {
     const username = req.header('username') as string;
+    // Clear Redis in-memory session
+    await redisService.clearInterviewSession(username);
+
+    // Clear MongoDB records
     await QA.deleteOne({ username });
     await Qno.deleteOne({ username });
     res.json({ message: 'true' });
@@ -285,8 +341,20 @@ export const resetInterview = async (req: Request, res: Response) => {
 
 export const checkScoreHistory = async (req: AuthRequest, res: Response) => {
   const username = req.username;
+
+  // 1. Check Redis cache first (sub-millisecond dashboard response)
+  const cached = await redisService.getScoreHistoryCache(username);
+  if (cached) {
+    return res.json(cached);
+  }
+
+  // 2. Query MongoDB if not in cache
   const userScore = await Score.findOne({ username });
-  if (!userScore) return res.json({ validUser: true, array: [], suggestion: 'No score history found.' });
+  if (!userScore) {
+    const emptyResult = { validUser: true, array: [], suggestion: 'No score history found.' };
+    await redisService.setScoreHistoryCache(username, emptyResult, 600);
+    return res.json(emptyResult);
+  }
 
   const lastScores = userScore.lastscore.split('_').filter(s => s !== '').map(Number);
   const lastFive = lastScores.slice(-5);
@@ -300,9 +368,14 @@ export const checkScoreHistory = async (req: AuthRequest, res: Response) => {
     } catch {
       suggestion = 'Unable to generate suggestion.';
     }
-    return res.json({ validUser: true, array: lastFive, suggestion });
+    const responseData = { validUser: true, array: lastFive, suggestion };
+    await redisService.setScoreHistoryCache(username, responseData, 600);
+    return res.json(responseData);
   }
-  return res.json({ validUser: true, array: lastFive, suggestion: 'Not enough scores to analyze.' });
+
+  const responseData = { validUser: true, array: lastFive, suggestion: 'Not enough scores to analyze.' };
+  await redisService.setScoreHistoryCache(username, responseData, 600);
+  return res.json(responseData);
 };
 
 export const resumeAnalysis = async (req: any, res: Response) => {

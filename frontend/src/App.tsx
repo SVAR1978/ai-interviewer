@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Signin from './pages/Signin';
 import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
 import DashboardLayout from './components/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import Interview from './pages/Interview';
@@ -20,6 +21,7 @@ const App: React.FC = () => {
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/signin" element={<Signin />} />
                 <Route path="/signup" element={<Signup />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
                 
                 {/* Authenticated routes wrapped in DashboardLayout */}
                 <Route element={<DashboardLayout />}>
