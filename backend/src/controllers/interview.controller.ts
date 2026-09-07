@@ -129,10 +129,10 @@ Rules:
       strengths: parsed.strengths || parsed.key_strengths || parsed.keyStrengths || 'No strengths analysis available.',
       improvement_points: Array.isArray(parsed.improvement_points) ? parsed.improvement_points
         : Array.isArray(parsed.improvements) ? parsed.improvements
-        : Array.isArray(parsed.areas_for_improvement) ? parsed.areas_for_improvement
-        : Array.isArray(parsed.weaknesses) ? parsed.weaknesses
-        : typeof parsed.improvement_points === 'string' ? [parsed.improvement_points]
-        : ['No specific improvement areas identified.']
+          : Array.isArray(parsed.areas_for_improvement) ? parsed.areas_for_improvement
+            : Array.isArray(parsed.weaknesses) ? parsed.weaknesses
+              : typeof parsed.improvement_points === 'string' ? [parsed.improvement_points]
+                : ['No specific improvement areas identified.']
     };
 
     const numericScore = parsed.overall_score?.match(/\d+/)?.[0] || '0';
