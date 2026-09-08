@@ -47,6 +47,11 @@ const Interview: React.FC = () => {
             const data = await res.json();
             localStorage.setItem('firstQuestion', data.question);
             localStorage.setItem('domain', domain);
+            if (selectedJD) {
+                localStorage.setItem('jobDescriptionId', selectedJD);
+            } else {
+                localStorage.removeItem('jobDescriptionId');
+            }
             if (data.ragGrounded) {
                 localStorage.setItem('ragGrounded', 'true');
                 const jd = jds.find(j => j._id === selectedJD);

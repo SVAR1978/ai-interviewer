@@ -91,15 +91,18 @@ class STTService {
       });
 
       socket.on('close', (event: any) => {
-        console.log(`[STTService] Deepgram closed for session ${sessionId} (code: ${event?.code || 'none'}, reason: ${event?.reason || 'none'})`);
+        console.log(`[STTService] Deepgram closed for session ${sessionId} (code: ${event?.code || 'none'})`);
         sessionObj.isOpen = false;
         this.activeSessions.delete(sessionId);
       });
 
+      // Initiate connection (required in @deepgram/sdk v5)
+      socket.connect();
+
       // Wait for the WebSocket to genuinely open before accepting media
       const openPromise = socket.waitForOpen();
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Deepgram connection timeout after 4000ms')), 4000)
+        setTimeout(() => reject(new Error('Deepgram connection timeout after 8000ms')), 8000)
       );
 
       await Promise.race([openPromise, timeoutPromise]);
@@ -121,7 +124,9 @@ class STTService {
    */
   public isSessionOpen(sessionId: string): boolean {
     const session = this.activeSessions.get(sessionId);
-    return Boolean(session && session.isOpen && session.socket && session.socket.readyState === 1);
+    if (!session || !session.isOpen || !session.socket) return false;
+    const rawSocket = session.socket.socket || session.socket;
+    return Boolean(rawSocket.readyState === 1);
   }
 
   /**
@@ -131,13 +136,14 @@ class STTService {
     const session = this.activeSessions.get(sessionId);
     if (!session || !session.isOpen || !session.socket) return;
 
-    if (session.socket.readyState !== 1) {
-      return;
-    }
-
     try {
-      session.socket.sendMedia(chunk);
+      if (typeof session.socket.send === 'function') {
+        session.socket.send(chunk);
+      } else if (session.socket.socket && typeof session.socket.socket.send === 'function') {
+        session.socket.socket.send(chunk);
+      }
     } catch (err: any) {
+      console.warn(`[STTService] Send error:`, err?.message || err);
       session.isOpen = false;
       this.closeSession(sessionId);
     }

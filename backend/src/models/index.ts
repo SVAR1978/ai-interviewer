@@ -9,9 +9,37 @@ export interface IUser extends Document {
   createdAt?: Date;
 }
 
+export interface ISubScores {
+  technical: number;
+  communication: number;
+  problemSolving: number;
+  presence: number;
+  overall: number;
+}
+
+export interface ISessionMetrics {
+  eyeContactPercentage?: number;
+  postureStabilityPercentage?: number;
+  engagementPercentage?: number;
+  technicalDepth?: string;
+  readinessVerdict?: string;
+}
+
+export interface ISessionScoreRecord {
+  sessionId: string;
+  timestamp: Date;
+  overallScore: number;
+  subScores: ISubScores;
+  metrics?: ISessionMetrics;
+  feedbackSummary?: string;
+}
+
 export interface IScore extends Document {
   username: string;
-  lastscore: string;
+  /** @deprecated Legacy underscore-separated score string (e.g. "6_8_7_9"). Kept for zero-downtime backward compatibility. */
+  lastscore?: string;
+  sessions: ISessionScoreRecord[];
+  updatedAt?: Date;
 }
 
 export interface IQA extends Document {
@@ -63,10 +91,36 @@ const userSchema = new mongoose.Schema<IUser>({
   createdAt: { type: Date, default: Date.now },
 });
 
+const subScoresSchema = new mongoose.Schema<ISubScores>({
+  technical: { type: Number, required: true, min: 0, max: 10 },
+  communication: { type: Number, required: true, min: 0, max: 10 },
+  problemSolving: { type: Number, required: true, min: 0, max: 10 },
+  presence: { type: Number, required: true, min: 0, max: 10, default: 7.5 },
+  overall: { type: Number, required: true, min: 0, max: 10 },
+}, { _id: false });
+
+const sessionMetricsSchema = new mongoose.Schema<ISessionMetrics>({
+  eyeContactPercentage: { type: Number, min: 0, max: 100 },
+  postureStabilityPercentage: { type: Number, min: 0, max: 100 },
+  engagementPercentage: { type: Number, min: 0, max: 100 },
+  technicalDepth: { type: String, default: 'Proficient' },
+  readinessVerdict: { type: String },
+}, { _id: false });
+
+const sessionScoreRecordSchema = new mongoose.Schema<ISessionScoreRecord>({
+  sessionId: { type: String, required: true },
+  timestamp: { type: Date, default: Date.now, index: true },
+  overallScore: { type: Number, required: true, min: 0, max: 10 },
+  subScores: { type: subScoresSchema, required: true },
+  metrics: { type: sessionMetricsSchema, default: () => ({}) },
+  feedbackSummary: { type: String, default: '' },
+}, { _id: false });
+
 const scoreSchema = new mongoose.Schema<IScore>({
-  username: String,
-  lastscore: String,
-});
+  username: { type: String, required: true, unique: true, index: true },
+  lastscore: { type: String, default: '' }, // Deprecated legacy string format (e.g. "6_8_7_9")
+  sessions: { type: [sessionScoreRecordSchema], default: [] },
+}, { timestamps: true });
 
 const qaSchema = new mongoose.Schema<IQA>({
   username: String,

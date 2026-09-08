@@ -52,15 +52,27 @@ class RedisService {
         this.isConnected = true;
       });
 
-      this.client.on('error', (err) => {
-        // Log cleanly without crashing
-        console.warn('[RedisService] Redis notice:', err.message);
+      this.client.on('error', (err: any) => {
+        // Upstash serverless terminates idle sockets after ~15-30s; ioredis reconnects automatically.
+        // Suppress benign idle disconnections (ECONNRESET, ETIMEDOUT) to keep logs clean.
+        if (err?.message && (err.message.includes('ECONNRESET') || err.message.includes('ETIMEDOUT'))) {
+          this.isConnected = false;
+          return;
+        }
+        console.warn('[RedisService] Redis notice:', err?.message || err);
         this.isConnected = false;
       });
 
       this.client.on('close', () => {
         this.isConnected = false;
       });
+
+      // Heartbeat ping every 15s to keep the Upstash serverless connection warm
+      setInterval(() => {
+        if (this.client && this.isConnected) {
+          this.client.ping().catch(() => {});
+        }
+      }, 15000);
     } catch (err: any) {
       console.warn('[RedisService] Failed to initialize Redis client:', err?.message);
       this.client = null;
@@ -131,10 +143,35 @@ class RedisService {
     }
   }
 
+  // --- Rolling Context Summary Checkpoint Caching ---
+
+  public async getSessionSummary(username: string): Promise<string | null> {
+    if (!this.isAvailable()) return null;
+    try {
+      return await this.client!.get(`interview:summary:${username}`);
+    } catch (err) {
+      console.warn('[RedisService] Error getting session summary:', err);
+      return null;
+    }
+  }
+
+  public async setSessionSummary(username: string, summary: string, ttlSeconds: number = 7200): Promise<void> {
+    if (!this.isAvailable()) return;
+    try {
+      await this.client!.set(`interview:summary:${username}`, summary, 'EX', ttlSeconds);
+    } catch (err) {
+      console.warn('[RedisService] Error setting session summary:', err);
+    }
+  }
+
   public async clearInterviewSession(username: string): Promise<void> {
     if (!this.isAvailable()) return;
     try {
-      await this.client!.del(`interview:qa:${username}`, `interview:qno:${username}`);
+      await this.client!.del(
+        `interview:qa:${username}`,
+        `interview:qno:${username}`,
+        `interview:summary:${username}`
+      );
     } catch (err) {
       console.warn('[RedisService] Error clearing interview session from Redis:', err);
     }

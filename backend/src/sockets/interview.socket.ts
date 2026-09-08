@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../config/env';
 import { redisService } from '../services/redis.service';
 import { retrieveRelevantChunks, retrieveChunksForJD } from '../services/rag.service';
+import { rollingContextService } from '../services/rollingContext.service';
 import { QA, Qno } from '../models';
 import { ttsService } from '../services/tts.service';
 import { sttService } from '../services/stt.service';
@@ -129,11 +130,18 @@ export const initSocketServer = (httpServer: HttpServer) => {
         const fullTranscript = await redisService.getSessionQA(username) || qaRecord.questionanswer;
         const nextQno = qIndex + 1;
 
-        // 6. RAG Context Retrieval for grounded follow-ups
+        // 6. Rolling Context Summarization (Condenses older turns, preserves immediate recent turn)
+        const optimizedContext = await rollingContextService.getOptimizedInterviewContext(
+          username,
+          domain,
+          fullTranscript
+        );
+
+        // 7. Hybrid RAG Context Retrieval (Dense + BM25 Sparse via RRF)
         let ragContext = '';
         try {
           let relevantChunks;
-          const query = `${domain} ${fullTranscript}`;
+          const query = optimizedContext.ragQuery;
           if (jobDescriptionId) {
             relevantChunks = await retrieveChunksForJD(query, jobDescriptionId, 5);
           } else {
@@ -148,10 +156,10 @@ export const initSocketServer = (httpServer: HttpServer) => {
           console.warn('[Socket] RAG context retrieval notice:', ragErr);
         }
 
-        // 7. Question Generation Prompt
+        // 8. Question Generation Prompt using Rolling Context Checkpoint
         const promptText = ragContext
-          ? `You are an expert technical interviewer. Based on the following job description requirements and the candidate's previous responses, generate a relevant follow-up interview question in the domain of "${domain}".${ragContext}\n\nPrevious Q&A:\n${fullTranscript}\n\nGenerate a follow-up question that digs deeper into the job requirements or probes areas the candidate hasn't covered yet. Only output the question itself.`
-          : `Based on this previous Q&A history, generate a relevant follow-up interview question in the domain of "${domain}":\n${fullTranscript}\n\nOnly output the question itself.`;
+          ? `You are an expert technical interviewer. Based on the following job description requirements and the candidate's interview progress, generate a relevant follow-up interview question in the domain of "${domain}".${ragContext}\n\nCandidate Progress & Interview State:\n${optimizedContext.promptContext}\n\nGenerate a follow-up question that probes untested skills or deepens coverage. Only output the question itself.`
+          : `You are an expert technical interviewer. Based on this candidate's interview progress, generate a relevant follow-up interview question in the domain of "${domain}":\n${optimizedContext.promptContext}\n\nOnly output the question itself.`;
 
         // 8. Emit stream start to client
         socket.emit('interview:stream_start', {
