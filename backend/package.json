@@ -20,6 +20,7 @@
   "author": "Your Name",
   "license": "ISC",
   "dependencies": {
+    "@deepgram/sdk": "^5.10.0",
     "@google/generative-ai": "^0.24.0",
     "assemblyai": "^4.9.0",
     "cors": "^2.8.5",
@@ -27,10 +28,12 @@
     "express": "^4.21.2",
     "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
+    "microsoft-cognitiveservices-speech-sdk": "^1.51.0",
     "mongoose": "^8.11.0",
     "multer": "^1.4.5-lts.2",
     "nodemailer": "^10.0.1",
-    "pdf-parse": "^1.1.1"
+    "pdf-parse": "^1.1.1",
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

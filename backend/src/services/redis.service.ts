@@ -22,6 +22,8 @@ class RedisService {
         connectTimeout: 10000,
         keepAlive: 10000, // Send TCP keepalive every 10s to prevent Upstash idle drops
         family: 4, // Use IPv4
+        maxRetriesPerRequest: 3,
+        enableOfflineQueue: false, // Immediately fallback to MongoDB if Redis is momentarily reconnecting
         retryStrategy: (times) => {
           // Keep reconnecting with exponential backoff (max 3s)
           return Math.min(times * 200, 3000);

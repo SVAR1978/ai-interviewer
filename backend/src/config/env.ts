@@ -18,4 +18,8 @@ export const config = {
     from: process.env.SMTP_FROM || process.env.EMAIL_FROM || '"AI Interviewer" <no-reply@ai-interviewer.com>',
   },
   redisURL: process.env.REDIS_URL || '',
+  deepgramApiKey: process.env.DEEPGRAM_API_KEY || '',
+  azureSpeechKey: process.env.AZURE_SPEECH_KEY || process.env.SPEECH_KEY || '',
+  azureSpeechRegion: process.env.AZURE_SPEECH_REGION || process.env.SPEECH_REGION || 'eastus',
+  azureSpeechVoice: process.env.AZURE_SPEECH_VOICE || 'en-US-JennyNeural', // Enterprise Neural Voice
 };
